@@ -25,3 +25,11 @@ class BookingCreate(BaseModel):
     start_date: date
     duration: int  # number of days
     customer_name: str
+
+
+class BookingCancel(BaseModel):
+    model_config = ConfigDict()
+    
+    booking_id: int
+    start_date: date
+    customer_name: str
