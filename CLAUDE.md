@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 uv sync
 
 # Run the FastAPI development server
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 
 # Run in Docker
 docker build -t van-services .
@@ -20,13 +20,21 @@ docker run -p 8000:8000 van-services
 ### Testing
 ```bash
 # Run all tests
-pytest test_main.py
+pytest tests/
 
 # Run tests with verbose output
-pytest test_main.py -v
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_vehicles.py -v
 
 # Run specific test class
-pytest test_main.py::TestVehicleEndpoints -v
+pytest tests/test_vehicles.py::TestVehicleEndpoints -v
+
+# Run tests for specific functionality
+pytest tests/test_bookings.py -v
+pytest tests/test_schedules.py -v
+pytest tests/test_admin.py -v
 ```
 
 ### Testing Endpoints Manually
