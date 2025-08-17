@@ -161,6 +161,131 @@ class TestBookingEndpoints:
         response = client.post("/booking", json=new_booking)
         assert response.status_code == 400
         assert "No vehicles" in response.json()["detail"]
+    
+    def test_create_and_cancel_booking(self, client):
+        """Test creating a booking, then cancelling it, and confirming deletion."""
+        # Step 1: Create a new booking
+        new_booking = {
+            "category": "Small",
+            "start_date": "2025-03-01",
+            "duration": 2,
+            "customer_name": "Test Customer"
+        }
+        
+        create_response = client.post("/booking", json=new_booking)
+        assert create_response.status_code == 200
+        
+        created_booking = create_response.json()
+        booking_id = created_booking["booking_id"]
+        start_date = created_booking["start_date"]
+        customer_name = created_booking["customer_name"]
+        
+        # Verify booking was created
+        get_response = client.get(f"/booking/{booking_id}")
+        assert get_response.status_code == 200
+        
+        # Step 2: Cancel the booking
+        cancel_data = {
+            "booking_id": booking_id,
+            "start_date": start_date,
+            "customer_name": customer_name
+        }
+        
+        cancel_response = client.post("/booking/cancel", json=cancel_data)
+        assert cancel_response.status_code == 200
+        assert cancel_response.json() == {"message": "Booking cancelled successfully"}
+        
+        # Step 3: Confirm booking has been deleted
+        get_deleted_response = client.get(f"/booking/{booking_id}")
+        assert get_deleted_response.status_code == 404
+        assert get_deleted_response.json() == {"detail": "Booking not found"}
+        
+        # Step 4: Verify schedule entries have been removed
+        schedule_response = client.get("/schedule")
+        assert schedule_response.status_code == 200
+        
+        schedule_entries = schedule_response.json()
+        
+        # Check that the previously booked dates no longer exist in schedule
+        booking_schedule_entries = [
+            entry for entry in schedule_entries
+            if (entry["date"] >= start_date and 
+                entry["date"] <= created_booking["end_date"] and 
+                entry["vehicle_id"] == created_booking["vehicle_id"])
+        ]
+        assert len(booking_schedule_entries) == 0
+    
+    def test_cancel_booking_invalid_credentials(self, client):
+        """Test cancelling a booking with invalid credentials."""
+        # Try to cancel with wrong customer name
+        cancel_data = {
+            "booking_id": 1,
+            "start_date": "2024-08-15",
+            "customer_name": "Wrong Customer"
+        }
+        cancel_response = client.post("/booking/cancel", json=cancel_data)
+        assert cancel_response.status_code == 404
+        assert cancel_response.json() == {"detail": "Booking not found or invalid credentials"}
+        
+        # Try to cancel with wrong start date
+        cancel_data = {
+            "booking_id": 1,
+            "start_date": "2024-08-01",
+            "customer_name": "John Smith"
+        }
+        cancel_response = client.post("/booking/cancel", json=cancel_data)
+        assert cancel_response.status_code == 404
+        assert cancel_response.json() == {"detail": "Booking not found or invalid credentials"}
+    
+    def test_cancel_nonexistent_booking(self, client):
+        """Test cancelling a booking that doesn't exist."""
+        cancel_data = {
+            "booking_id": 999,
+            "start_date": "2024-08-15",
+            "customer_name": "John Smith"
+        }
+        cancel_response = client.post("/booking/cancel", json=cancel_data)
+        assert cancel_response.status_code == 404
+        assert cancel_response.json() == {"detail": "Booking not found or invalid credentials"}
+    
+    def test_cancel_existing_booking_removes_schedule(self, client):
+        """Test cancelling an existing booking removes schedule entries."""
+        # Use an existing booking from sample data
+        cancel_data = {
+            "booking_id": 1,
+            "start_date": "2024-08-15", 
+            "customer_name": "John Smith"
+        }
+        
+        # First verify the booking and schedule entries exist
+        booking_response = client.get("/booking/1")
+        assert booking_response.status_code == 200
+        
+        schedule_response = client.get("/schedule")
+        assert schedule_response.status_code == 200
+        initial_schedule = schedule_response.json()
+        
+        # Find schedule entries for booking 1
+        booking_1_entries = [entry for entry in initial_schedule if entry["booking_id"] == 1]
+        assert len(booking_1_entries) > 0  # Should have some entries
+        
+        # Cancel the booking
+        cancel_response = client.post("/booking/cancel", json=cancel_data)
+        assert cancel_response.status_code == 200
+        assert cancel_response.json() == {"message": "Booking cancelled successfully"}
+        
+        # Verify booking is deleted
+        deleted_booking_response = client.get("/booking/1")
+        assert deleted_booking_response.status_code == 404
+        
+        # Verify schedule entries are removed
+        final_schedule_response = client.get("/schedule")
+        assert final_schedule_response.status_code == 200
+        final_schedule = final_schedule_response.json()
+        
+        # Check that no schedule entries exist for booking 1
+        remaining_booking_1_entries = [entry for entry in final_schedule if entry["booking_id"] == 1]
+        assert len(remaining_booking_1_entries) == 0
 
 
 class TestScheduleEndpoints:

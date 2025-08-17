@@ -105,6 +105,37 @@ class BookingDB:
         conn.commit()
         conn.close()
         return booking
+    
+    @staticmethod
+    def delete(booking_id: int, start_date: date, customer_name: str) -> bool:
+        """Delete a booking by ID, start date, and customer name."""
+        conn = get_db_connection()
+        
+        # First verify the booking exists with matching criteria
+        booking = conn.execute(
+            'SELECT * FROM bookings WHERE booking_id = ? AND start_date = ? AND customer_name = ?', 
+            (booking_id, start_date.isoformat(), customer_name)
+        ).fetchone()
+        
+        if not booking:
+            conn.close()
+            return False
+        
+        # Delete the booking
+        cursor = conn.execute(
+            'DELETE FROM bookings WHERE booking_id = ? AND start_date = ? AND customer_name = ?', 
+            (booking_id, start_date.isoformat(), customer_name)
+        )
+        
+        # Delete schedule entries for this booking
+        conn.execute(
+            'DELETE FROM schedule WHERE booking_id = ?',
+            (booking_id,)
+        )
+        
+        conn.commit()
+        conn.close()
+        return cursor.rowcount > 0
 
 
 class ScheduleDB:
