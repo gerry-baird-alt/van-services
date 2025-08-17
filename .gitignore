@@ -5,6 +5,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# project database
+van_rental.db
+
 # env files
 .env
 
