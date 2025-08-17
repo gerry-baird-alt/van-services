@@ -4,9 +4,13 @@ from decimal import Decimal
 from datetime import date
 
 
+# Global variable to override database path for testing
+_test_db_path = None
+
 def get_db_connection():
     """Get a connection to the SQLite database."""
-    conn = sqlite3.connect('van_rental.db')
+    db_path = _test_db_path if _test_db_path else 'van_rental.db'
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -57,14 +61,71 @@ def init_db():
     conn.close()
 
 
-def insert_sample_data():
-    """Insert sample data into the database."""
+def delete_data():
+    """Completely reset database by dropping and recreating tables."""
     conn = get_db_connection()
     
-    # Clear existing data
-    conn.execute('DELETE FROM schedule')
-    conn.execute('DELETE FROM bookings')
-    conn.execute('DELETE FROM vehicles')
+    # Enable foreign keys to ensure proper cascade
+    conn.execute('PRAGMA foreign_keys = ON')
+    
+    # Drop all tables in correct order (respecting foreign keys)
+    conn.execute('DROP TABLE IF EXISTS schedule')
+    conn.execute('DROP TABLE IF EXISTS bookings')
+    conn.execute('DROP TABLE IF EXISTS vehicles')
+    
+    # Clear any remaining sqlite_sequence entries (if table exists)
+    try:
+        conn.execute('DELETE FROM sqlite_sequence WHERE name IN ("vehicles", "bookings")')
+    except sqlite3.OperationalError:
+        # sqlite_sequence table doesn't exist yet, which is fine
+        pass
+    
+    # Recreate tables
+    conn.execute('''
+        CREATE TABLE vehicles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            manufacturer TEXT NOT NULL,
+            model TEXT NOT NULL,
+            daily_rental_rate REAL NOT NULL,
+            number_of_seats INTEGER NOT NULL
+        )
+    ''')
+    
+    conn.execute('''
+        CREATE TABLE bookings (
+            booking_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehicle_id INTEGER NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            customer_name TEXT NOT NULL,
+            cost REAL NOT NULL,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+        )
+    ''')
+    
+    conn.execute('''
+        CREATE TABLE schedule (
+            date DATE NOT NULL,
+            vehicle_id INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            booking_id INTEGER,
+            PRIMARY KEY (date, vehicle_id),
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles (id),
+            FOREIGN KEY (booking_id) REFERENCES bookings (booking_id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+
+def insert_sample_data():
+    """Insert sample data into the database."""
+    # First reset the database completely
+    delete_data()
+    
+    conn = get_db_connection()
     
     # Insert sample vehicles
     vehicles = [
