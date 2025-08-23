@@ -33,3 +33,21 @@ class BookingCancel(BaseModel):
     booking_id: int
     start_date: date
     customer_name: str
+
+
+class BookingWithVehicle(BaseModel):
+    model_config = ConfigDict()
+    
+    booking_id: int
+    vehicle_id: int
+    start_date: date
+    end_date: date
+    customer_name: str
+    cost: Decimal
+    vehicle_category: str
+    vehicle_manufacturer: str
+    vehicle_model: str
+    
+    @field_serializer('cost')
+    def serialize_decimal(self, value: Decimal) -> float:
+        return float(value)

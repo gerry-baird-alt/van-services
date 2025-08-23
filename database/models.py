@@ -2,7 +2,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 from typing import List, Optional
 from .database import get_db_connection
-from model import Vehicle, Booking, Schedule, VehicleSearchResult
+from model import Vehicle, Booking, Schedule, VehicleSearchResult, BookingWithVehicle
 
 
 class VehicleDB:
@@ -92,6 +92,26 @@ class BookingDB:
         return None
     
     @staticmethod
+    def get_by_date(target_date: date) -> List[Booking]:
+        """Get all bookings that are active on a specific date."""
+        conn = get_db_connection()
+        bookings = conn.execute('''
+            SELECT * FROM bookings 
+            WHERE start_date <= ? AND end_date >= ?
+            ORDER BY start_date, customer_name
+        ''', (target_date.isoformat(), target_date.isoformat())).fetchall()
+        conn.close()
+        
+        return [Booking(
+            booking_id=row['booking_id'],
+            vehicle_id=row['vehicle_id'],
+            start_date=date.fromisoformat(row['start_date']),
+            end_date=date.fromisoformat(row['end_date']),
+            customer_name=row['customer_name'],
+            cost=Decimal(str(row['cost']))
+        ) for row in bookings]
+    
+    @staticmethod
     def create(booking: Booking) -> Booking:
         """Create a new booking in database."""
         conn = get_db_connection()
@@ -136,6 +156,32 @@ class BookingDB:
         conn.commit()
         conn.close()
         return cursor.rowcount > 0
+    
+    @staticmethod
+    def get_by_date_with_vehicle(target_date: date) -> List[BookingWithVehicle]:
+        """Get all bookings that are active on a specific date with vehicle details."""
+        conn = get_db_connection()
+        bookings = conn.execute('''
+            SELECT b.booking_id, b.vehicle_id, b.start_date, b.end_date, 
+                   b.customer_name, b.cost, v.category, v.manufacturer, v.model
+            FROM bookings b
+            JOIN vehicles v ON b.vehicle_id = v.id
+            WHERE b.start_date <= ? AND b.end_date >= ?
+            ORDER BY b.start_date, b.customer_name
+        ''', (target_date.isoformat(), target_date.isoformat())).fetchall()
+        conn.close()
+        
+        return [BookingWithVehicle(
+            booking_id=row['booking_id'],
+            vehicle_id=row['vehicle_id'],
+            start_date=date.fromisoformat(row['start_date']),
+            end_date=date.fromisoformat(row['end_date']),
+            customer_name=row['customer_name'],
+            cost=Decimal(str(row['cost'])),
+            vehicle_category=row['category'],
+            vehicle_manufacturer=row['manufacturer'],
+            vehicle_model=row['model']
+        ) for row in bookings]
 
 
 class ScheduleDB:

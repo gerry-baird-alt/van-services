@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from typing import List
-from model import Schedule, VehicleSearchRequest, VehicleSearchResult
-from database import ScheduleDB
+from datetime import date
+from model import Schedule, VehicleSearchRequest, VehicleSearchResult, Booking
+from database import ScheduleDB, BookingDB
 
 router = APIRouter(prefix="/schedule", tags=["schedules"])
 

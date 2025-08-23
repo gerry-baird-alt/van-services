@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from decimal import Decimal
-from datetime import timedelta
-from model import Booking, BookingCreate, BookingCancel, Schedule
+from datetime import date, timedelta
+from model import Booking, BookingCreate, BookingCancel, Schedule, BookingWithVehicle
 from database import BookingDB, ScheduleDB
 
 router = APIRouter(prefix="/booking", tags=["bookings"])
@@ -85,3 +85,15 @@ async def cancel_booking(cancel_data: BookingCancel):
         )
     
     return {"message": "Booking cancelled successfully"}
+
+    
+@router.get("/by_date/{target_date}", response_model=List[Booking])
+async def get_bookings_for_date(target_date: date):
+    """Get all bookings that are active on a specific date."""
+    return BookingDB.get_by_date(target_date)
+
+
+@router.get("/by_date_with_vehicle/{target_date}", response_model=List[BookingWithVehicle])
+async def get_bookings_for_date_with_vehicle(target_date: date):
+    """Get all bookings that are active on a specific date with vehicle details."""
+    return BookingDB.get_by_date_with_vehicle(target_date)
