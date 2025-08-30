@@ -125,6 +125,7 @@
           "bookings"
         ],
         "summary": "Get Bookings",
+        "description": "Get all bookings in the system.\n\nReturns a complete list of all customer reservations including:\n- Booking details (ID, dates, customer name)\n- Assigned vehicle information\n- Total cost and branch location\n- Current booking status\n\nReturns:\n    List of all Booking objects with complete reservation details",
         "operationId": "get_bookings_booking_get",
         "responses": {
           "200": {
@@ -148,6 +149,7 @@
           "bookings"
         ],
         "summary": "Create Booking",
+        "description": "Create a new vehicle booking reservation.\n\nThis endpoint handles the complete booking process including:\n- Validation of branch existence and date ranges\n- Vehicle availability checking for requested category/dates/branch\n- Automatic vehicle selection and cost calculation\n- Booking creation with assigned vehicle\n\nThe system automatically selects the first available vehicle matching the criteria\nand calculates the total cost based on daily rates and rental duration.\n\nArgs:\n    booking_data: BookingCreate containing:\n        - category: Requested vehicle size (Small, Medium, Large)\n        - start_date: Rental start date (cannot be in past)\n        - end_date: Rental end date (must be >= start_date)\n        - customer_name: Name for the reservation\n        - branch_id: Branch location for pickup/return\n        \nReturns:\n    Complete Booking object with:\n        - Assigned booking ID and vehicle\n        - Confirmed dates and customer details\n        - Calculated total cost\n        - Branch location information\n        \nRaises:\n    HTTPException:\n        - 400 if branch doesn't exist\n        - 400 if date range is invalid or in past\n        - 400 if no vehicles available for requested criteria",
         "operationId": "create_booking_booking_post",
         "requestBody": {
           "content": {
@@ -189,6 +191,7 @@
           "bookings"
         ],
         "summary": "Get Booking",
+        "description": "Get a specific booking by its ID.\n\nRetrieves detailed information for a single customer reservation including\nall booking details, assigned vehicle, and cost information.\n\nArgs:\n    booking_id: The unique identifier of the booking\n    \nReturns:\n    Booking object with complete reservation details including:\n        - Customer information and dates\n        - Assigned vehicle details\n        - Total cost and branch location\n        \nRaises:\n    HTTPException: 404 if booking with the specified ID is not found",
         "operationId": "get_booking_booking__booking_id__get",
         "parameters": [
           {
@@ -231,7 +234,7 @@
           "bookings"
         ],
         "summary": "Cancel Booking",
-        "description": "Cancel a booking by booking_id, start_date, and customer_name.",
+        "description": "Cancel an existing booking reservation.\n\nThis endpoint provides secure booking cancellation by requiring multiple\nverification fields to prevent unauthorized cancellations. All three\nfields must match exactly for the cancellation to proceed.\n\nArgs:\n    cancel_data: BookingCancel containing:\n        - booking_id: The unique booking identifier\n        - start_date: The original booking start date\n        - customer_name: The name on the reservation\n        \nReturns:\n    Success confirmation message when booking is cancelled\n    \nRaises:\n    HTTPException: 404 if booking not found or credentials don't match exactly\n    \nSecurity Note:\n    Requires exact match of booking ID, start date, and customer name\n    to prevent unauthorized booking modifications.",
         "operationId": "cancel_booking_booking_cancel_post",
         "requestBody": {
           "content": {
@@ -311,7 +314,7 @@
           "branches"
         ],
         "summary": "Get All Branches",
-        "description": "Get all branches.",
+        "description": "Get all branch locations in the rental network.\n\nReturns a complete list of all physical rental locations where\ncustomers can pick up and return vehicles. Each branch includes\nlocation details and contact information.\n\nReturns:\n    List of Branch objects containing:\n        - Branch identification and name\n        - Complete address information\n        - City location for geographic reference",
         "operationId": "get_all_branches_branches__get",
         "responses": {
           "200": {
@@ -335,7 +338,7 @@
           "branches"
         ],
         "summary": "Create Branch",
-        "description": "Create a new branch.",
+        "description": "Create a new branch location in the rental network.\n\nEstablishes a new physical location where customers can pick up and\nreturn rental vehicles. The new branch will be available for vehicle\nassignments and bookings immediately upon creation.\n\nArgs:\n    branch: BranchCreate containing:\n        - branch_name: Descriptive name for the location\n        - address: Complete street address\n        - city: City where the branch is located\n        \nReturns:\n    Created Branch object with assigned ID and all location details\n    \nNote:\n    The new branch can immediately be assigned vehicles and used for bookings.\n    Ensure address information is accurate for customer navigation.",
         "operationId": "create_branch_branches__post",
         "requestBody": {
           "content": {
@@ -377,7 +380,7 @@
           "branches"
         ],
         "summary": "Get Branch",
-        "description": "Get a branch by ID.",
+        "description": "Get a specific branch location by its ID.\n\nRetrieves detailed information for a single rental branch location\nincluding address, city, and operational details.\n\nArgs:\n    branch_id: The unique identifier of the branch location\n    \nReturns:\n    Branch object with complete location details:\n        - Branch name and identification\n        - Full street address\n        - City location\n        \nRaises:\n    HTTPException: 404 if branch with the specified ID is not found",
         "operationId": "get_branch_branches__branch_id__get",
         "parameters": [
           {
@@ -420,7 +423,7 @@
           "availability"
         ],
         "summary": "Search Available Vehicles",
-        "description": "Search for available vehicles based on date range and optional filters.",
+        "description": "Search for available vehicles based on date range and optional filters.\n\nThis endpoint allows flexible searching for rental vehicles with various filter combinations:\n- Date range only: Find all available vehicles across all branches and categories\n- Category filter: Find vehicles of specific size (Small, Medium, Large) from all branches\n- Branch filter: Find all vehicle types available at a specific branch location\n- Combined filters: Find specific category vehicles at a specific branch\n\nArgs:\n    request: AvailabilityRequest containing:\n        - start_date: Rental start date (must not be in the past)\n        - end_date: Rental end date (must be >= start_date)\n        - category: Optional vehicle size filter\n        - branch_id: Optional branch location filter\n        \nReturns:\n    List of AvailableVehicle objects with:\n        - Vehicle specifications and details\n        - Daily rental rate\n        - Total cost calculated for the requested date range\n        - Branch assignment\n        \nRaises:\n    HTTPException: \n        - 400 if date range is invalid or in the past\n        - 400 if specified branch_id does not exist",
         "operationId": "search_available_vehicles_availability_search_post",
         "requestBody": {
           "content": {
