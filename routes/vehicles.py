@@ -9,11 +9,32 @@ router = APIRouter(prefix="/vehicle", tags=["vehicles"])
 
 @router.get("", response_model=List[Vehicle])
 async def get_vehicles():
+    """
+    Get all vehicles in the rental fleet.
+    
+    Returns a list of all vehicles with their details including:
+    - Vehicle specifications (category, manufacturer, model)
+    - Pricing information (daily rental rate)
+    - Capacity (number of seats)
+    - Branch location assignment
+    """
     return VehicleDB.get_all()
 
 
 @router.get("/{vehicle_id}", response_model=Vehicle)
 async def get_vehicle(vehicle_id: int):
+    """
+    Get a specific vehicle by its ID.
+    
+    Args:
+        vehicle_id: The unique identifier of the vehicle
+        
+    Returns:
+        Vehicle details including specifications, pricing, and branch assignment
+        
+    Raises:
+        HTTPException: 404 if vehicle with the specified ID is not found
+    """
     vehicle = VehicleDB.get_by_id(vehicle_id)
     if vehicle:
         return vehicle
@@ -22,6 +43,27 @@ async def get_vehicle(vehicle_id: int):
 
 @router.post("", response_model=Vehicle)
 async def create_vehicle(vehicle_data: VehicleCreate):
+    """
+    Add a new vehicle to the rental fleet.
+    
+    Creates a new vehicle record with the provided specifications and assigns it to a branch.
+    The vehicle will be available for booking once created.
+    
+    Args:
+        vehicle_data: Vehicle creation data including:
+            - category: Vehicle size category (e.g., "Small", "Medium", "Large")
+            - manufacturer: Vehicle manufacturer name
+            - model: Vehicle model name
+            - daily_rental_rate: Daily rental price in decimal format
+            - number_of_seats: Passenger capacity
+            - branch_id: ID of the branch where vehicle will be located
+            
+    Returns:
+        The created vehicle with assigned ID and all specifications
+        
+    Raises:
+        HTTPException: 400 if the specified branch ID does not exist
+    """
     # Validate that the branch exists
     branch = BranchDB.get_by_id(vehicle_data.branch_id)
     if not branch:

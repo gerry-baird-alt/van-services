@@ -16,6 +16,7 @@
           "vehicles"
         ],
         "summary": "Get Vehicles",
+        "description": "Get all vehicles in the rental fleet.\n\nReturns a list of all vehicles with their details including:\n- Vehicle specifications (category, manufacturer, model)\n- Pricing information (daily rental rate)\n- Capacity (number of seats)\n- Branch location assignment",
         "operationId": "get_vehicles_vehicle_get",
         "responses": {
           "200": {
@@ -39,6 +40,7 @@
           "vehicles"
         ],
         "summary": "Create Vehicle",
+        "description": "Add a new vehicle to the rental fleet.\n\nCreates a new vehicle record with the provided specifications and assigns it to a branch.\nThe vehicle will be available for booking once created.\n\nArgs:\n    vehicle_data: Vehicle creation data including:\n        - category: Vehicle size category (e.g., \"Small\", \"Medium\", \"Large\")\n        - manufacturer: Vehicle manufacturer name\n        - model: Vehicle model name\n        - daily_rental_rate: Daily rental price in decimal format\n        - number_of_seats: Passenger capacity\n        - branch_id: ID of the branch where vehicle will be located\n        \nReturns:\n    The created vehicle with assigned ID and all specifications\n    \nRaises:\n    HTTPException: 400 if the specified branch ID does not exist",
         "operationId": "create_vehicle_vehicle_post",
         "requestBody": {
           "content": {
@@ -80,6 +82,7 @@
           "vehicles"
         ],
         "summary": "Get Vehicle",
+        "description": "Get a specific vehicle by its ID.\n\nArgs:\n    vehicle_id: The unique identifier of the vehicle\n    \nReturns:\n    Vehicle details including specifications, pricing, and branch assignment\n    \nRaises:\n    HTTPException: 404 if vehicle with the specified ID is not found",
         "operationId": "get_vehicle_vehicle__vehicle_id__get",
         "parameters": [
           {

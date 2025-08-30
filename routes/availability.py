@@ -9,7 +9,34 @@ router = APIRouter(prefix="/availability", tags=["availability"])
 
 @router.post("/search", response_model=List[AvailableVehicle])
 async def search_available_vehicles(request: AvailabilityRequest):
-    """Search for available vehicles based on date range and optional filters."""
+    """
+    Search for available vehicles based on date range and optional filters.
+    
+    This endpoint allows flexible searching for rental vehicles with various filter combinations:
+    - Date range only: Find all available vehicles across all branches and categories
+    - Category filter: Find vehicles of specific size (Small, Medium, Large) from all branches
+    - Branch filter: Find all vehicle types available at a specific branch location
+    - Combined filters: Find specific category vehicles at a specific branch
+    
+    Args:
+        request: AvailabilityRequest containing:
+            - start_date: Rental start date (must not be in the past)
+            - end_date: Rental end date (must be >= start_date)
+            - category: Optional vehicle size filter
+            - branch_id: Optional branch location filter
+            
+    Returns:
+        List of AvailableVehicle objects with:
+            - Vehicle specifications and details
+            - Daily rental rate
+            - Total cost calculated for the requested date range
+            - Branch assignment
+            
+    Raises:
+        HTTPException: 
+            - 400 if date range is invalid or in the past
+            - 400 if specified branch_id does not exist
+    """
     
     # Validate date range
     if request.start_date > request.end_date:
