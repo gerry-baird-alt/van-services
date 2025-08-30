@@ -24,7 +24,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS branches (
             branch_id INTEGER PRIMARY KEY AUTOINCREMENT,
             branch_name TEXT NOT NULL,
-            address TEXT NOT NULL
+            address TEXT NOT NULL,
+            city TEXT NOT NULL
         )
     ''')
     
@@ -86,7 +87,8 @@ def delete_data():
         CREATE TABLE branches (
             branch_id INTEGER PRIMARY KEY AUTOINCREMENT,
             branch_name TEXT NOT NULL,
-            address TEXT NOT NULL
+            address TEXT NOT NULL,
+            city TEXT NOT NULL
         )
     ''')
     
@@ -131,14 +133,14 @@ def insert_sample_data():
     
     # Insert sample branches first
     branches = [
-        (1, 'Downtown Branch', '123 Main Street, City Center'),
-        (2, 'Airport Branch', '456 Airport Drive, Terminal 2'),
-        (3, 'Suburban Branch', '789 Oak Avenue, Suburbia Mall')
+        (1, 'Downtown Branch', '123 Main Street, City Center', 'New York'),
+        (2, 'Airport Branch', '456 Airport Drive, Terminal 2', 'Los Angeles'),
+        (3, 'Suburban Branch', '789 Oak Avenue, Suburbia Mall', 'Chicago')
     ]
     
     conn.executemany('''
-        INSERT INTO branches (branch_id, branch_name, address)
-        VALUES (?, ?, ?)
+        INSERT INTO branches (branch_id, branch_name, address, city)
+        VALUES (?, ?, ?, ?)
     ''', branches)
 
     # Insert sample vehicles

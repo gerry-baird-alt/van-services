@@ -38,7 +38,7 @@ pytest tests/test_admin.py -v
 ```
 
 ### Testing Endpoints Manually
-Use the provided `test_main.http` file with VS Code REST Client extension to test API endpoints.
+The application serves API endpoints at http://localhost:8000. FastAPI provides automatic API documentation at http://localhost:8000/docs (Swagger UI).
 
 ## Architecture Overview
 
@@ -49,25 +49,34 @@ This is a FastAPI-based van rental service with a three-layer architecture:
 **Models Layer** (`model/`):
 - Pydantic models defining the core data structures
 - `Vehicle`: Van rental fleet with pricing and capacity
-- `Booking`: Customer reservations with dates and costs  
-- `Schedule`: Daily vehicle availability and status tracking
+- `Booking`: Customer reservations with dates and costs
+- `Branch`: Physical rental locations with name, address, and city
+- `Availability`: Search requests and available vehicle responses
+- Each model includes both base and create variants for API operations
 
 **Database Layer** (`database/`):
 - SQLite database with foreign key relationships
 - `database.py`: Connection management and table creation
-- `models.py`: Database access objects (VehicleDB, BookingDB, ScheduleDB)
-- Foreign key relationships: `bookings.vehicle_id → vehicles.id` and `schedule.vehicle_id → vehicles.id`, `schedule.booking_id → bookings.booking_id`
+- `models.py`: Database access objects (VehicleDB, BookingDB, BranchDB, ScheduleDB)
+- Foreign key relationships: 
+  - `vehicles.branch_id → branches.branch_id`
+  - `bookings.vehicle_id → vehicles.id` and `bookings.branch_id → branches.branch_id`
+  - `schedule.vehicle_id → vehicles.id` and `schedule.booking_id → bookings.booking_id`
 
-**API Layer** (`main.py`):
-- FastAPI application with RESTful endpoints
-- Automatic database initialization with sample data on startup
-- Endpoints for vehicles, bookings, and schedules
+**API Layer** (`routes/` and `main.py`):
+- FastAPI application with modular router structure
+- Automatic database initialization with sample data on startup via lifespan events
+- Route modules: `vehicles`, `bookings`, `branches`, `availability`, `admin`
+- Each route module handles CRUD operations for its respective domain
 
 ### Database Schema
 
 The SQLite database (`van_rental.db`) uses these key relationships:
+- `branches` table: Contains physical rental locations with branch_id, branch_name, address, and city
+- `vehicles` table: References branches through branch_id foreign key
+- `bookings` table: References both vehicles and branches through foreign keys
 - `schedule` table has composite primary key (date, vehicle_id)
-- Foreign keys ensure referential integrity between vehicles, bookings, and schedule entries
+- Foreign keys ensure referential integrity between branches, vehicles, bookings, and schedule entries
 - Schedule entries can be "booked" (with booking_id), "available", or "maintenance"
 
 ### Data Flow

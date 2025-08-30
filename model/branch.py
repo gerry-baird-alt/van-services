@@ -7,6 +7,7 @@ class Branch(BaseModel):
     branch_id: int
     branch_name: str
     address: str
+    city: str
 
 
 class BranchCreate(BaseModel):
@@ -14,3 +15,4 @@ class BranchCreate(BaseModel):
     
     branch_name: str
     address: str
+    city: str

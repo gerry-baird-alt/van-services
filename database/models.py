@@ -189,7 +189,8 @@ class BranchDB:
         return [Branch(
             branch_id=row['branch_id'],
             branch_name=row['branch_name'],
-            address=row['address']
+            address=row['address'],
+            city=row['city']
         ) for row in branches]
     
     @staticmethod
@@ -203,7 +204,8 @@ class BranchDB:
             return Branch(
                 branch_id=row['branch_id'],
                 branch_name=row['branch_name'],
-                address=row['address']
+                address=row['address'],
+                city=row['city']
             )
         return None
     
@@ -212,9 +214,9 @@ class BranchDB:
         """Create a new branch in database."""
         conn = get_db_connection()
         cursor = conn.execute('''
-            INSERT INTO branches (branch_name, address)
-            VALUES (?, ?)
-        ''', (branch.branch_name, branch.address))
+            INSERT INTO branches (branch_name, address, city)
+            VALUES (?, ?, ?)
+        ''', (branch.branch_name, branch.address, branch.city))
         
         branch.branch_id = cursor.lastrowid
         conn.commit()

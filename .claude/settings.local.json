@@ -6,7 +6,8 @@
       "Bash(pytest:*)",
       "Bash(curl:*)",
       "Bash(python -m pytest tests/test_vehicles.py -v)",
-      "Bash(uv run pytest:*)"
+      "Bash(uv run pytest:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []
