@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from database import init_db, insert_sample_data
-from routes import vehicles, bookings, schedules, admin
+from routes import vehicles, bookings, admin, branches, availability
 
 
 @asynccontextmanager
@@ -18,5 +18,6 @@ app = FastAPI(lifespan=lifespan)
 # Include route modules
 app.include_router(vehicles.router)
 app.include_router(bookings.router)
-app.include_router(schedules.router)
 app.include_router(admin.router)
+app.include_router(branches.router)
+app.include_router(availability.router)

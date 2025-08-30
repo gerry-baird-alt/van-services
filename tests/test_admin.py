@@ -10,7 +10,8 @@ class TestAdminEndpoints:
             "manufacturer": "Test Motors",
             "model": "Test Van",
             "daily_rental_rate": 50.0,
-            "number_of_seats": 4
+            "number_of_seats": 4,
+            "branch_id": 1
         }
         vehicle_response = client.post("/vehicle", json=new_vehicle)
         assert vehicle_response.status_code == 200
@@ -25,9 +26,6 @@ class TestAdminEndpoints:
         assert bookings_response.status_code == 200
         initial_booking_count = len(bookings_response.json())
         
-        schedule_response = client.get("/schedule")
-        assert schedule_response.status_code == 200
-        initial_schedule_count = len(schedule_response.json())
         
         # Delete all data
         delete_response = client.delete("/admin/data")
@@ -42,10 +40,6 @@ class TestAdminEndpoints:
         bookings_after = client.get("/booking")
         assert bookings_after.status_code == 200
         assert len(bookings_after.json()) == 0
-        
-        schedule_after = client.get("/schedule")
-        assert schedule_after.status_code == 200
-        assert len(schedule_after.json()) == 0
     
     def test_delete_all_data_when_empty(self, client):
         """Test deleting data when database is already empty."""
@@ -72,13 +66,18 @@ class TestAdminEndpoints:
         booking_response = client.get("/booking/1")
         assert booking_response.status_code == 404
         
+        # Reset database first to ensure branches exist
+        reset_response = client.post("/admin/reset")
+        assert reset_response.status_code == 200
+        
         # Create a new vehicle after deletion
         new_vehicle = {
             "category": "Test",
             "manufacturer": "Test Motors",
             "model": "Test Van",
             "daily_rental_rate": 50.0,
-            "number_of_seats": 4
+            "number_of_seats": 4,
+            "branch_id": 1
         }
         
         create_response = client.post("/vehicle", json=new_vehicle)
@@ -88,12 +87,14 @@ class TestAdminEndpoints:
         assert created_vehicle["category"] == "Test"
         assert created_vehicle["manufacturer"] == "Test Motors"
         
-        # Verify the vehicle was created
+        # Verify the vehicle was created (should now have 4: 3 sample + 1 test)
         vehicles_response = client.get("/vehicle")
         assert vehicles_response.status_code == 200
         vehicles = vehicles_response.json()
-        assert len(vehicles) == 1
-        assert vehicles[0]["category"] == "Test"
+        assert len(vehicles) == 4
+        # Find our test vehicle
+        test_vehicle = next(v for v in vehicles if v["category"] == "Test")
+        assert test_vehicle["manufacturer"] == "Test Motors"
 
     def test_reset_database_success(self, client):
         """Test successfully resetting the database with sample data."""
@@ -109,10 +110,6 @@ class TestAdminEndpoints:
         bookings_response = client.get("/booking")
         assert bookings_response.status_code == 200
         assert len(bookings_response.json()) == 0
-        
-        schedule_response = client.get("/schedule")
-        assert schedule_response.status_code == 200
-        assert len(schedule_response.json()) == 0
         
         # Reset database with sample data
         reset_response = client.post("/admin/reset")
@@ -160,12 +157,6 @@ class TestAdminEndpoints:
         assert booking_1_data["customer_name"] == "John Smith"
         assert booking_1_data["vehicle_id"] == 1
         
-        # Verify sample schedule was loaded
-        schedule_after = client.get("/schedule")
-        assert schedule_after.status_code == 200
-        schedule = schedule_after.json()
-        assert len(schedule) > 0  # Should have schedule entries
-        
     def test_reset_database_from_existing_data(self, client):
         """Test resetting database when it already contains data."""
         # Create additional test data first
@@ -174,7 +165,8 @@ class TestAdminEndpoints:
             "manufacturer": "Test Motors",
             "model": "Test Van",
             "daily_rental_rate": 50.0,
-            "number_of_seats": 4
+            "number_of_seats": 4,
+            "branch_id": 1
         }
         vehicle_response = client.post("/vehicle", json=new_vehicle)
         assert vehicle_response.status_code == 200

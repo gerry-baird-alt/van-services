@@ -18,6 +18,7 @@ class TestVehicleEndpoints:
         assert "model" in vehicle
         assert "daily_rental_rate" in vehicle
         assert "number_of_seats" in vehicle
+        assert "branch_id" in vehicle
     
     def test_get_vehicle_by_id(self, client):
         """Test getting a specific vehicle by ID."""
@@ -43,7 +44,8 @@ class TestVehicleEndpoints:
             "manufacturer": "Mercedes",
             "model": "Sprinter",
             "daily_rental_rate": 85.0,
-            "number_of_seats": 12
+            "number_of_seats": 12,
+            "branch_id": 1
         }
         
         response = client.post("/vehicle", json=new_vehicle)
@@ -55,5 +57,21 @@ class TestVehicleEndpoints:
         assert vehicle["model"] == "Sprinter"
         assert vehicle["daily_rental_rate"] == 85.0
         assert vehicle["number_of_seats"] == 12
+        assert vehicle["branch_id"] == 1
         assert "id" in vehicle
         assert vehicle["id"] > 0
+    
+    def test_create_vehicle_invalid_branch(self, client):
+        """Test creating a vehicle with non-existent branch_id."""
+        new_vehicle = {
+            "category": "Large",
+            "manufacturer": "Mercedes",
+            "model": "Sprinter",
+            "daily_rental_rate": 85.0,
+            "number_of_seats": 12,
+            "branch_id": 999  # Non-existent branch
+        }
+        
+        response = client.post("/vehicle", json=new_vehicle)
+        assert response.status_code == 400
+        assert "Branch with ID 999 does not exist" in response.json()["detail"]

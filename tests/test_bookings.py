@@ -1,4 +1,5 @@
 import pytest
+from datetime import date, timedelta
 
 
 class TestBookingEndpoints:
@@ -18,6 +19,7 @@ class TestBookingEndpoints:
         assert "end_date" in booking
         assert "customer_name" in booking
         assert "cost" in booking
+        assert "branch_id" in booking
     
     def test_get_booking_by_id(self, client):
         """Test getting a specific booking by ID."""
@@ -39,11 +41,15 @@ class TestBookingEndpoints:
     
     def test_create_booking_success(self, client):
         """Test creating a new booking successfully."""
+        future_date = date.today() + timedelta(days=30)
+        end_date = future_date + timedelta(days=1)
+        
         new_booking = {
             "category": "Small",
-            "start_date": "2025-01-01",
-            "duration": 2,
-            "customer_name": "Jane Doe"
+            "start_date": future_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "customer_name": "Jane Doe",
+            "branch_id": 1
         }
         
         response = client.post("/booking", json=new_booking)
@@ -51,36 +57,108 @@ class TestBookingEndpoints:
         
         booking = response.json()
         assert booking["customer_name"] == "Jane Doe"
-        assert booking["start_date"] == "2025-01-01"
-        assert booking["end_date"] == "2025-01-02"
+        assert booking["start_date"] == future_date.isoformat()
+        assert booking["end_date"] == end_date.isoformat()
         assert "booking_id" in booking
         assert "vehicle_id" in booking
         assert "cost" in booking
+        assert "branch_id" in booking
+        assert booking["branch_id"] == 1
         assert booking["cost"] > 0
     
     def test_create_booking_no_availability(self, client):
         """Test creating a booking when no vehicles are available."""
+        # First create a booking to consume availability
+        future_date = date.today() + timedelta(days=45)
+        end_date = future_date + timedelta(days=2)
+        
+        first_booking = {
+            "category": "Small",
+            "start_date": future_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "customer_name": "First Customer",
+            "branch_id": 1
+        }
+        
+        first_response = client.post("/booking", json=first_booking)
+        assert first_response.status_code == 200
+        
+        # Now try to book the same category/branch for overlapping dates
+        # This should fail due to no availability (assuming only 1 Small vehicle at branch 1)
+        conflicting_booking = {
+            "category": "Small", 
+            "start_date": (future_date + timedelta(days=1)).isoformat(),
+            "end_date": (future_date + timedelta(days=3)).isoformat(),
+            "customer_name": "Jane Doe",
+            "branch_id": 1
+        }
+        
+        response = client.post("/booking", json=conflicting_booking)
+        assert response.status_code == 400
+        assert "No vehicles" in response.json()["detail"]
+    
+    def test_create_booking_invalid_branch(self, client):
+        """Test creating a booking with invalid branch_id."""
+        future_date = date.today() + timedelta(days=15)
+        end_date = future_date + timedelta(days=1)
+        
         new_booking = {
             "category": "Small",
-            "start_date": "2024-08-15",  # Date that conflicts with existing booking
-            "duration": 3,
-            "customer_name": "Jane Doe"
+            "start_date": future_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "customer_name": "Jane Doe",
+            "branch_id": 999  # Non-existent branch
         }
         
         response = client.post("/booking", json=new_booking)
         assert response.status_code == 400
-        assert "No vehicles" in response.json()["detail"]
+        assert "Branch with ID 999 does not exist" in response.json()["detail"]
+    
+    def test_create_booking_invalid_date_range(self, client):
+        """Test creating a booking with invalid date range (start after end)."""
+        future_date = date.today() + timedelta(days=10)
+        past_date = future_date - timedelta(days=5)
+        
+        new_booking = {
+            "category": "Small",
+            "start_date": future_date.isoformat(),
+            "end_date": past_date.isoformat(),  # End before start
+            "customer_name": "Jane Doe",
+            "branch_id": 1
+        }
+        
+        response = client.post("/booking", json=new_booking)
+        assert response.status_code == 400
+        assert "Start date must be before or equal to end date" in response.json()["detail"]
+    
+    def test_create_booking_past_date(self, client):
+        """Test creating a booking with past start date."""
+        new_booking = {
+            "category": "Small",
+            "start_date": "2020-01-01",  # Past date
+            "end_date": "2020-01-02",
+            "customer_name": "Jane Doe",
+            "branch_id": 1
+        }
+        
+        response = client.post("/booking", json=new_booking)
+        assert response.status_code == 400
+        assert "Start date cannot be in the past" in response.json()["detail"]
 
 
 class TestBookingCancellation:
     def test_create_and_cancel_booking(self, client):
         """Test creating a booking, then cancelling it, and confirming deletion."""
         # Step 1: Create a new booking
+        future_date = date.today() + timedelta(days=60)
+        end_date = future_date + timedelta(days=1)
+        
         new_booking = {
             "category": "Small",
-            "start_date": "2025-03-01",
-            "duration": 2,
-            "customer_name": "Test Customer"
+            "start_date": future_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "customer_name": "Test Customer",
+            "branch_id": 1
         }
         
         create_response = client.post("/booking", json=new_booking)
@@ -111,20 +189,6 @@ class TestBookingCancellation:
         assert get_deleted_response.status_code == 404
         assert get_deleted_response.json() == {"detail": "Booking not found"}
         
-        # Step 4: Verify schedule entries have been removed
-        schedule_response = client.get("/schedule")
-        assert schedule_response.status_code == 200
-        
-        schedule_entries = schedule_response.json()
-        
-        # Check that the previously booked dates no longer exist in schedule
-        booking_schedule_entries = [
-            entry for entry in schedule_entries
-            if (entry["date"] >= start_date and 
-                entry["date"] <= created_booking["end_date"] and 
-                entry["vehicle_id"] == created_booking["vehicle_id"])
-        ]
-        assert len(booking_schedule_entries) == 0
     
     def test_cancel_booking_invalid_credentials(self, client):
         """Test cancelling a booking with invalid credentials."""
@@ -159,8 +223,8 @@ class TestBookingCancellation:
         assert cancel_response.status_code == 404
         assert cancel_response.json() == {"detail": "Booking not found or invalid credentials"}
     
-    def test_cancel_existing_booking_removes_schedule(self, client):
-        """Test cancelling an existing booking removes schedule entries."""
+    def test_cancel_existing_booking(self, client):
+        """Test cancelling an existing booking."""
         # Use an existing booking from sample data
         cancel_data = {
             "booking_id": 1,
@@ -168,17 +232,9 @@ class TestBookingCancellation:
             "customer_name": "John Smith"
         }
         
-        # First verify the booking and schedule entries exist
+        # First verify the booking exists
         booking_response = client.get("/booking/1")
         assert booking_response.status_code == 200
-        
-        schedule_response = client.get("/schedule")
-        assert schedule_response.status_code == 200
-        initial_schedule = schedule_response.json()
-        
-        # Find schedule entries for booking 1
-        booking_1_entries = [entry for entry in initial_schedule if entry["booking_id"] == 1]
-        assert len(booking_1_entries) > 0  # Should have some entries
         
         # Cancel the booking
         cancel_response = client.post("/booking/cancel", json=cancel_data)
@@ -188,12 +244,3 @@ class TestBookingCancellation:
         # Verify booking is deleted
         deleted_booking_response = client.get("/booking/1")
         assert deleted_booking_response.status_code == 404
-        
-        # Verify schedule entries are removed
-        final_schedule_response = client.get("/schedule")
-        assert final_schedule_response.status_code == 200
-        final_schedule = final_schedule_response.json()
-        
-        # Check that no schedule entries exist for booking 1
-        remaining_booking_1_entries = [entry for entry in final_schedule if entry["booking_id"] == 1]
-        assert len(remaining_booking_1_entries) == 0

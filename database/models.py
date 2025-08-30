@@ -2,7 +2,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 from typing import List, Optional
 from .database import get_db_connection
-from model import Vehicle, Booking, Schedule, VehicleSearchResult, BookingWithVehicle
+from model import Vehicle, Booking, Branch
 
 
 class VehicleDB:
@@ -19,7 +19,8 @@ class VehicleDB:
             manufacturer=row['manufacturer'],
             model=row['model'],
             daily_rental_rate=Decimal(str(row['daily_rental_rate'])),
-            number_of_seats=row['number_of_seats']
+            number_of_seats=row['number_of_seats'],
+            branch_id=row['branch_id']
         ) for row in vehicles]
     
     @staticmethod
@@ -36,7 +37,8 @@ class VehicleDB:
                 manufacturer=row['manufacturer'],
                 model=row['model'],
                 daily_rental_rate=Decimal(str(row['daily_rental_rate'])),
-                number_of_seats=row['number_of_seats']
+                number_of_seats=row['number_of_seats'],
+                branch_id=row['branch_id']
             )
         return None
     
@@ -45,15 +47,52 @@ class VehicleDB:
         """Create a new vehicle in database."""
         conn = get_db_connection()
         cursor = conn.execute('''
-            INSERT INTO vehicles (category, manufacturer, model, daily_rental_rate, number_of_seats)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO vehicles (category, manufacturer, model, daily_rental_rate, number_of_seats, branch_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         ''', (vehicle.category, vehicle.manufacturer, vehicle.model, 
-              float(vehicle.daily_rental_rate), vehicle.number_of_seats))
+              float(vehicle.daily_rental_rate), vehicle.number_of_seats, vehicle.branch_id))
         
         vehicle.id = cursor.lastrowid
         conn.commit()
         conn.close()
         return vehicle
+    
+    @staticmethod
+    def get_available_vehicles(category: str, start_date: date, end_date: date, branch_id: int) -> List[Vehicle]:
+        """Get vehicles available for booking in the specified date range and branch."""
+        conn = get_db_connection()
+        
+        # Find vehicles that don't have conflicting bookings
+        query = '''
+        SELECT DISTINCT v.*
+        FROM vehicles v
+        WHERE v.category = ? AND v.branch_id = ?
+        AND v.id NOT IN (
+            SELECT DISTINCT b.vehicle_id
+            FROM bookings b
+            WHERE (b.start_date <= ? AND b.end_date >= ?)
+               OR (b.start_date <= ? AND b.end_date >= ?)
+               OR (b.start_date >= ? AND b.end_date <= ?)
+        )
+        '''
+        
+        vehicles = conn.execute(query, (
+            category, branch_id,
+            end_date.isoformat(), start_date.isoformat(),
+            start_date.isoformat(), start_date.isoformat(),
+            start_date.isoformat(), end_date.isoformat()
+        )).fetchall()
+        conn.close()
+        
+        return [Vehicle(
+            id=row['id'],
+            category=row['category'],
+            manufacturer=row['manufacturer'],
+            model=row['model'],
+            daily_rental_rate=Decimal(str(row['daily_rental_rate'])),
+            number_of_seats=row['number_of_seats'],
+            branch_id=row['branch_id']
+        ) for row in vehicles]
 
 
 class BookingDB:
@@ -70,7 +109,8 @@ class BookingDB:
             start_date=date.fromisoformat(row['start_date']),
             end_date=date.fromisoformat(row['end_date']),
             customer_name=row['customer_name'],
-            cost=Decimal(str(row['cost']))
+            cost=Decimal(str(row['cost'])),
+            branch_id=row['branch_id']
         ) for row in bookings]
     
     @staticmethod
@@ -87,39 +127,21 @@ class BookingDB:
                 start_date=date.fromisoformat(row['start_date']),
                 end_date=date.fromisoformat(row['end_date']),
                 customer_name=row['customer_name'],
-                cost=Decimal(str(row['cost']))
+                cost=Decimal(str(row['cost'])),
+                branch_id=row['branch_id']
             )
         return None
     
-    @staticmethod
-    def get_by_date(target_date: date) -> List[Booking]:
-        """Get all bookings that are active on a specific date."""
-        conn = get_db_connection()
-        bookings = conn.execute('''
-            SELECT * FROM bookings 
-            WHERE start_date <= ? AND end_date >= ?
-            ORDER BY start_date, customer_name
-        ''', (target_date.isoformat(), target_date.isoformat())).fetchall()
-        conn.close()
-        
-        return [Booking(
-            booking_id=row['booking_id'],
-            vehicle_id=row['vehicle_id'],
-            start_date=date.fromisoformat(row['start_date']),
-            end_date=date.fromisoformat(row['end_date']),
-            customer_name=row['customer_name'],
-            cost=Decimal(str(row['cost']))
-        ) for row in bookings]
     
     @staticmethod
     def create(booking: Booking) -> Booking:
         """Create a new booking in database."""
         conn = get_db_connection()
         cursor = conn.execute('''
-            INSERT INTO bookings (vehicle_id, start_date, end_date, customer_name, cost)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO bookings (vehicle_id, start_date, end_date, customer_name, cost, branch_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         ''', (booking.vehicle_id, booking.start_date.isoformat(), 
-              booking.end_date.isoformat(), booking.customer_name, float(booking.cost)))
+              booking.end_date.isoformat(), booking.customer_name, float(booking.cost), booking.branch_id))
         
         booking.booking_id = cursor.lastrowid
         conn.commit()
@@ -147,142 +169,54 @@ class BookingDB:
             (booking_id, start_date.isoformat(), customer_name)
         )
         
-        # Delete schedule entries for this booking
-        conn.execute(
-            'DELETE FROM schedule WHERE booking_id = ?',
-            (booking_id,)
-        )
         
         conn.commit()
         conn.close()
         return cursor.rowcount > 0
     
-    @staticmethod
-    def get_by_date_with_vehicle(target_date: date) -> List[BookingWithVehicle]:
-        """Get all bookings that are active on a specific date with vehicle details."""
-        conn = get_db_connection()
-        bookings = conn.execute('''
-            SELECT b.booking_id, b.vehicle_id, b.start_date, b.end_date, 
-                   b.customer_name, b.cost, v.category, v.manufacturer, v.model
-            FROM bookings b
-            JOIN vehicles v ON b.vehicle_id = v.id
-            WHERE b.start_date <= ? AND b.end_date >= ?
-            ORDER BY b.start_date, b.customer_name
-        ''', (target_date.isoformat(), target_date.isoformat())).fetchall()
-        conn.close()
-        
-        return [BookingWithVehicle(
-            booking_id=row['booking_id'],
-            vehicle_id=row['vehicle_id'],
-            start_date=date.fromisoformat(row['start_date']),
-            end_date=date.fromisoformat(row['end_date']),
-            customer_name=row['customer_name'],
-            cost=Decimal(str(row['cost'])),
-            vehicle_category=row['category'],
-            vehicle_manufacturer=row['manufacturer'],
-            vehicle_model=row['model']
-        ) for row in bookings]
 
 
-class ScheduleDB:
+
+
+class BranchDB:
     @staticmethod
-    def get_all() -> List[Schedule]:
-        """Get all schedule entries from database."""
+    def get_all() -> List[Branch]:
+        """Get all branches from database."""
         conn = get_db_connection()
-        schedules = conn.execute('SELECT * FROM schedule ORDER BY date, vehicle_id').fetchall()
+        branches = conn.execute('SELECT * FROM branches').fetchall()
         conn.close()
         
-        return [Schedule(
-            date=date.fromisoformat(row['date']),
-            vehicle_id=row['vehicle_id'],
-            status=row['status'],
-            booking_id=row['booking_id']
-        ) for row in schedules]
+        return [Branch(
+            branch_id=row['branch_id'],
+            branch_name=row['branch_name'],
+            address=row['address']
+        ) for row in branches]
     
     @staticmethod
-    def get_by_vehicle_and_date(vehicle_id: int, schedule_date: date) -> Optional[Schedule]:
-        """Get a schedule entry by vehicle ID and date."""
+    def get_by_id(branch_id: int) -> Optional[Branch]:
+        """Get a branch by ID."""
         conn = get_db_connection()
-        row = conn.execute('SELECT * FROM schedule WHERE vehicle_id = ? AND date = ?', 
-                          (vehicle_id, schedule_date.isoformat())).fetchone()
+        row = conn.execute('SELECT * FROM branches WHERE branch_id = ?', (branch_id,)).fetchone()
         conn.close()
         
         if row:
-            return Schedule(
-                date=date.fromisoformat(row['date']),
-                vehicle_id=row['vehicle_id'],
-                status=row['status'],
-                booking_id=row['booking_id']
+            return Branch(
+                branch_id=row['branch_id'],
+                branch_name=row['branch_name'],
+                address=row['address']
             )
         return None
     
     @staticmethod
-    def get_by_vehicle(vehicle_id: int) -> List[Schedule]:
-        """Get all schedule entries for a specific vehicle."""
+    def create(branch: Branch) -> Branch:
+        """Create a new branch in database."""
         conn = get_db_connection()
-        schedules = conn.execute('SELECT * FROM schedule WHERE vehicle_id = ? ORDER BY date', 
-                                (vehicle_id,)).fetchall()
-        conn.close()
+        cursor = conn.execute('''
+            INSERT INTO branches (branch_name, address)
+            VALUES (?, ?)
+        ''', (branch.branch_name, branch.address))
         
-        return [Schedule(
-            date=date.fromisoformat(row['date']),
-            vehicle_id=row['vehicle_id'],
-            status=row['status'],
-            booking_id=row['booking_id']
-        ) for row in schedules]
-    
-    @staticmethod
-    def create(schedule: Schedule) -> Schedule:
-        """Create a new schedule entry in database."""
-        conn = get_db_connection()
-        conn.execute('''
-            INSERT OR REPLACE INTO schedule (date, vehicle_id, status, booking_id)
-            VALUES (?, ?, ?, ?)
-        ''', (schedule.date.isoformat(), schedule.vehicle_id, schedule.status, schedule.booking_id))
-        
+        branch.branch_id = cursor.lastrowid
         conn.commit()
         conn.close()
-        return schedule
-    
-    @staticmethod
-    def search_available_vehicles(category: str, start_date: date, duration: int) -> List[VehicleSearchResult]:
-        """Search for available vehicles by category and date range."""
-        conn = get_db_connection()
-        
-        # Generate all dates in the requested period
-        search_dates = [(start_date + timedelta(days=i)).isoformat() for i in range(duration)]
-        placeholders = ','.join('?' * len(search_dates))
-        
-        # Find vehicles of the requested category that are available for all requested dates
-        query = f'''
-        SELECT DISTINCT v.id, v.category, v.manufacturer, v.model, v.daily_rental_rate, v.number_of_seats
-        FROM vehicles v
-        WHERE v.category = ?
-        AND v.id NOT IN (
-            SELECT DISTINCT s.vehicle_id
-            FROM schedule s
-            WHERE s.date IN ({placeholders})
-        )
-        '''
-        
-        params = [category] + search_dates
-        vehicles = conn.execute(query, params).fetchall()
-        conn.close()
-        
-        # Convert to search results with total cost calculation
-        results = []
-        for vehicle in vehicles:
-            daily_rate = float(vehicle['daily_rental_rate'])
-            total_cost = daily_rate * duration
-            
-            results.append(VehicleSearchResult(
-                vehicle_id=vehicle['id'],
-                category=vehicle['category'],
-                manufacturer=vehicle['manufacturer'],
-                model=vehicle['model'],
-                daily_rental_rate=daily_rate,
-                number_of_seats=vehicle['number_of_seats'],
-                total_cost=total_cost
-            ))
-        
-        return results
+        return branch

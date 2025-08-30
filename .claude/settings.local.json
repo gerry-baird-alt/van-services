@@ -3,7 +3,10 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(rm:*)",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Bash(curl:*)",
+      "Bash(python -m pytest tests/test_vehicles.py -v)",
+      "Bash(uv run pytest:*)"
     ],
     "deny": [],
     "ask": []

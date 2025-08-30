@@ -12,6 +12,7 @@ class Booking(BaseModel):
     end_date: date
     customer_name: str
     cost: Decimal
+    branch_id: int
     
     @field_serializer('cost')
     def serialize_decimal(self, value: Decimal) -> float:
@@ -23,8 +24,9 @@ class BookingCreate(BaseModel):
     
     category: str
     start_date: date
-    duration: int  # number of days
+    end_date: date
     customer_name: str
+    branch_id: int
 
 
 class BookingCancel(BaseModel):
@@ -35,19 +37,3 @@ class BookingCancel(BaseModel):
     customer_name: str
 
 
-class BookingWithVehicle(BaseModel):
-    model_config = ConfigDict()
-    
-    booking_id: int
-    vehicle_id: int
-    start_date: date
-    end_date: date
-    customer_name: str
-    cost: Decimal
-    vehicle_category: str
-    vehicle_manufacturer: str
-    vehicle_model: str
-    
-    @field_serializer('cost')
-    def serialize_decimal(self, value: Decimal) -> float:
-        return float(value)

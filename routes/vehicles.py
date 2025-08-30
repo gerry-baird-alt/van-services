@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from model import Vehicle, VehicleCreate
 from database import VehicleDB
+from database.models import BranchDB
 
 router = APIRouter(prefix="/vehicle", tags=["vehicles"])
 
@@ -21,12 +22,18 @@ async def get_vehicle(vehicle_id: int):
 
 @router.post("", response_model=Vehicle)
 async def create_vehicle(vehicle_data: VehicleCreate):
+    # Validate that the branch exists
+    branch = BranchDB.get_by_id(vehicle_data.branch_id)
+    if not branch:
+        raise HTTPException(status_code=400, detail=f"Branch with ID {vehicle_data.branch_id} does not exist")
+    
     vehicle = Vehicle(
         id=0,  # Will be set by database
         category=vehicle_data.category,
         manufacturer=vehicle_data.manufacturer,
         model=vehicle_data.model,
         daily_rental_rate=vehicle_data.daily_rental_rate,
-        number_of_seats=vehicle_data.number_of_seats
+        number_of_seats=vehicle_data.number_of_seats,
+        branch_id=vehicle_data.branch_id
     )
     return VehicleDB.create(vehicle)
