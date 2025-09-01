@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://van-services.1sp3v5eq7e8l..us-east.codeengine.appdomain.cloud"
+      "url": "https://van-services.1sp3v5eq7e8l.us-east.codeengine.appdomain.cloud"
     }
   ],
   "paths": {
